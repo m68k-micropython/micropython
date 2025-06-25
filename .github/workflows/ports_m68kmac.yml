@@ -1,0 +1,27 @@
+name: m68k macintosh port
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/autc04/retro68
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      run: |
+        git config --global --add safe.directory $(pwd)
+        make -C mpy-cross -j$(nproc)
+        make -C ports/m68kmac submodules
+        make -C ports/m68kmac -j$(nproc)
+    - name: Upload disk image
+      uses: actions/upload-artifact@v4
+      with:
+        path: ports/m68kmac/build/micropython.dsk
+
