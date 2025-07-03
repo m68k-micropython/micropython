@@ -1,5 +1,17 @@
 #include <py/obj.h>
+#include "shared/timeutils/timeutils.h"
 #include "Multiverse.h"
+
+
+// The value to *subtract* from a mac epoch to get a microypython epoch, or to
+// *add* to a microypython epoch to get a mac epoch. Note that the 32-bit
+// unsigned mac epoch ends in 2040.
+#define mac_unix_epoch_offset (2082844800lu)
+#define mac_2000_epoch_offset (mac_unix_epoch_offset + TIMEUTILS_SECONDS_1970_TO_2000)
+#define mac_micropython_epoch_offset (MICROPY_EPOCH_IS_1970 ? mac_unix_epoch_offset : mac_2000_epoch_offset)
+
+#define from_mac_timestamp(x) ((x) - mac_micropython_epoch_offset)
+#define to_mac_timestamp(x) ((x) + mac_micropython_epoch_offset)
 
 void check_mac_err(OSErr e);
 MP_NORETURN void raise_mac_err(OSErr e);

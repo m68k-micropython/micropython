@@ -395,6 +395,7 @@ static mp_obj_t volumes(mp_obj_t self_in) {
     return result;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(volumes_obj, volumes);
+MP_DEFINE_CONST_STATICMETHOD_OBJ(volumes_fun_obj, &volumes_obj);
 
 static mp_obj_t vfs_mac_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t mkfs) {
     mp_obj_vfs_mac_t *self = MP_OBJ_TO_PTR(self_in);
@@ -601,9 +602,9 @@ static mp_obj_t vfs_mac_stat(mp_obj_t self_in, mp_obj_t path_in) {
     t->items[4] = mp_obj_new_int_from_uint(0); // uid
     t->items[5] = mp_obj_new_int_from_uint(0); // gid
     t->items[6] = mp_obj_new_int_from_uint(is_dir ? 512 : pb.hFileInfo.ioFlPyLen); // data fork only
-    t->items[7] = mp_obj_new_int_from_uint(0); // atime
-    t->items[8] = mp_obj_new_int_from_uint(0); // mtime
-    t->items[9] = mp_obj_new_int_from_uint(0); // ctime
+    t->items[7] = mp_obj_new_int_from_uint(from_mac_timestamp(pb.hFileInfo.ioFlCrDat)); // atime
+    t->items[8] = mp_obj_new_int_from_uint(from_mac_timestamp(pb.hFileInfo.ioFlMdDat)); // mtime
+    t->items[9] = mp_obj_new_int_from_uint(from_mac_timestamp(pb.hFileInfo.ioFlCrDat)); // ctime
     return MP_OBJ_FROM_PTR(t);
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(vfs_mac_stat_obj, vfs_mac_stat);
@@ -634,7 +635,7 @@ static MP_DEFINE_CONST_FUN_OBJ_2(vfs_mac_statvfs_obj, vfs_mac_statvfs);
 
 
 static const mp_rom_map_elem_t vfs_mac_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR_volumes), MP_ROM_PTR(&volumes_obj) },
+    { MP_ROM_QSTR(MP_QSTR_volumes), MP_ROM_PTR(&volumes_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&vfs_mac_mount_obj) },
     { MP_ROM_QSTR(MP_QSTR_umount), MP_ROM_PTR(&vfs_mac_umount_obj) },
     { MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&vfs_mac_open_obj) },

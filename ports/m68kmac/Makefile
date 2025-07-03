@@ -49,6 +49,7 @@ SRC_C += \
 	shared/runtime/interrupt_char.c \
 	shared/runtime/pyexec.c \
 	shared/runtime/stdout_helpers.c \
+	shared/timeutils/timeutils.c \
 
 SRC_CXX += \
 	uart_core.cpp \

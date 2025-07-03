@@ -25,6 +25,10 @@
 #define MICROPY_READER_VFS                (1)
 #define MICROPY_VFS                       (1)
 #define MICROPY_PY_OS_STATVFS             (0)
+#define MICROPY_PY_TIME_GMTIME_LOCALTIME_MKTIME (1)
+#define MICROPY_PY_TIME_TIME_TIME_NS      (1)
+#define MICROPY_EPOCH_IS_1970             (0)
+#define MICROPY_PY_TIME_INCLUDEFILE       "ports/m68kmac/modtime.c"
 
 #define MP_SSIZE_MAX LONG_MAX
 
