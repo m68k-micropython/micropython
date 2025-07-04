@@ -16,7 +16,7 @@
 #define MICROPY_ENABLE_GC                 (1)
 #define MICROPY_HELPER_REPL               (1)
 #define MICROPY_ENABLE_EXTERNAL_IMPORT    (1)
-#define MICROPY_PY_UCTYPES                (0)
+#define MICROPY_PY_UCTYPES                (1)
 #define MICROPY_PY_SYS_STDFILES           (1)
 #define MICROPY_STACK_CHECK               (0)
 #define MICROPY_LONGINT_IMPL              (MICROPY_LONGINT_IMPL_MPZ)
