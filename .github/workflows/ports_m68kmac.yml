@@ -13,6 +13,7 @@ concurrency:
 
 jobs:
   build:
+    permissions: write-all
     runs-on: ubuntu-latest
     container: ghcr.io/autc04/retro68
     steps:
