@@ -42,6 +42,7 @@ SRC_C = \
 	main.c \
 	vfs_mac.c \
 	macutil.c \
+	$(BUILD)/modqd.c \
 
 SRC_C += \
 	shared/readline/readline.c \
@@ -64,11 +65,15 @@ SRC_QSTR += \
 	vfs_mac.c \
 	shared/readline/readline.c \
 	shared/runtime/pyexec.c \
+	$(BUILD)/modqd.c \
 
 OBJ += $(PY_CORE_O) $(PY_O)
 OBJ += $(addprefix $(BUILD)/, $(SRC_C:.c=.o))
 OBJ += $(addprefix $(BUILD)/, $(SRC_CXX:.cpp=.o))
 OBJ += $(addprefix $(BUILD)/, $(SRC_S:.s=.o))
+
+$(BUILD)/modqd.c: $(BUILD)/ tools/mkapi.py
+	$(PYTHON) tools/mkapi.py lib/multiversal/defs/QuickDraw.yaml qd > $@
 
 all: $(BUILD)/micropython.bin
 
@@ -89,7 +94,7 @@ $(BUILD)/micropython.bin $(BUILD)/micropython.APPL $(BUILD)/micropython.dsk: $(B
 		-o $(BUILD)/micropython.bin --cc $(BUILD)/micropython.APPL --cc $(BUILD)/micropython.dsk
 
 .PHONY: docker-build
-docker-build:
+docker-build: $(BUILD)/modqd.py
 	docker run --rm --mount type=bind,source=$(abspath $(TOP)),destination=/work ghcr.io/autc04/retro68  make -C /work/ports/m68kmac -j$(shell nproc)
 
 .PHONY: docker-build-%
