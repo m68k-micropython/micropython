@@ -2,16 +2,191 @@ import pathlib
 import sys
 import textwrap
 import yaml
+import dataclasses
+import click
+from functools import singledispatchmethod
+from dataclasses import dataclass, Field
+from typing import Any, get_args, get_origin, Union
 
-with open(sys.argv[1]) as f:
-    defs = yaml.safe_load(f)
-
-if len(sys.argv) > 2:
-    modname = sys.argv[2]
+if sys.version_info >= (3, 10):
+    from types import UnionType
 else:
-    modname = pathlib.Path(sys.argv[1]).stem
+    UnionType = type(Union[int, float])
 
-signed_integer_types = {'uint8_t', 'uint16_t', 'uint32_t', 'Fixed', 'GrafVerb', 'CharParameter'}
+
+@dataclass
+class CommonFields:
+    comment: str | None = None
+    only_for: str | None = None
+    not_for: str | None = None
+    api: str | None = None
+    doc: str | None = None
+    emit: bool = True
+
+
+def toplevel(cls):
+    for f in dataclasses.fields(CommonFields):
+        setattr(cls, f.name, f)
+        cls.__annotations__[f.name] = CommonFields.__annotations__[f.name]
+    return dataclass(cls)
+
+
+@dataclass
+class StructMember:
+    name: str
+    type: str
+
+
+@toplevel
+class Union:
+    name: str
+    members: list[StructMember] = dataclasses.field(default_factory=list)
+    size: int | None = None
+
+
+@toplevel
+class Struct:
+    name: str
+    members: list[StructMember] = dataclasses.field(default_factory=list)
+    size: int | None = None
+
+
+@dataclass
+class EnumMember:
+    name: str
+    value: int | None = None
+
+
+@toplevel
+class Enum:
+    values: list[EnumMember]
+    name: str | None = None
+
+
+@toplevel
+class Typedef:
+    name: str
+    type: str
+
+
+@toplevel
+class LowMem:
+    name: str
+    type: str
+    address: int
+
+
+@toplevel
+class PyVerbatim:
+    content: str | None = None
+    typedef_content: str | None = None
+    name: str | None = None
+
+
+@toplevel
+class Verbatim:
+    verbatim: str
+
+
+@dataclass
+class Argument:
+    name: str
+    type: str
+
+
+@toplevel
+class Function:
+    name: str
+    trap: int | None = None
+    args: list[Argument] = dataclasses.field(default_factory=list)
+    executor: str | None = None
+    return_: str | None = None
+
+
+@toplevel
+class FunPtr:
+    name: str
+    args: list[Argument] = dataclasses.field(default_factory=list)
+    return_: str | None = None
+
+
+yaml_types = {
+    'function': Function,
+    'funptr': FunPtr,
+    'verbatim': Verbatim,
+    'pyverbatim': PyVerbatim,
+    'lowmem': LowMem,
+    'typedef': Typedef,
+    'enum': Enum,
+    'struct': Struct,
+    'union': Union,
+}
+
+
+def fix_key(k):
+    k = k.replace('-', '_')
+    if k == 'return':
+        k += "_"
+    return k
+
+
+def identify(y):
+    for k in y.keys():
+        if r := yaml_types.get(k):
+            result = dict(y)
+            if k != 'verbatim':
+                # Verbatim just has a str value, it's not a namespace
+                result.update(result.pop(k, {}))
+            return result, r
+    raise RuntimeError(f"Could not identify field type for {y!r}")
+
+
+def get_field_type(field: Field[Any] | type) -> Any:
+    if isinstance(field, type):
+        return field
+    field_type = field.type
+    if isinstance(field_type, str):
+        raise RuntimeError("parameters dataclass may not use 'from __future__ import annotations")
+    origin = get_origin(field_type)
+    if origin in (Union, UnionType):
+        for arg in get_args(field_type):
+            if arg is not None:
+                return arg
+    if origin is list:
+        return [get_field_type(get_args(field_type)[0])]
+    return field_type
+
+
+def yaml_to_type(y, t=None):
+    if t is None:
+        y, t = identify(y)
+    if isinstance(y, t):
+        return y
+    try:
+        kwargs = {}
+        fields = {f.name: f for f in dataclasses.fields(t)}
+        print(list(fields.keys()), list(y.keys()))
+        for k, v in y.items():
+            k1 = fix_key(k)
+            print(f"{k=} {k1=} {fields=}")
+            field = fields[k1]
+            field_type = get_field_type(field)
+            if isinstance(v, list):
+                kwargs[k1] = [yaml_to_type(vi, field_type[0]) for vi in v]
+            else:
+                kwargs[k1] = yaml_to_type(v, field_type)
+        return t(**kwargs)
+    except (KeyError, TypeError) as e:
+        raise TypeError(f"Converting node {y} to {t}") from e
+
+
+def load_defs(path):
+    with open(path) as f:
+        defs = yaml.safe_load(f)
+    return [yaml_to_type(d) for d in defs]
+
+
+signed_integer_types = {'uint8_t', 'uint16_t', 'uint32_t'}
 unsigned_integer_types = {'int8_t', 'int16_t', 'int32_t'}
 
 
@@ -77,23 +252,11 @@ class Processor:
         self.locals = []
         self.info = []
         self.unknowns = set()
-        self.types = {
-            'Byte': 'uint8_t',
-            'Boolean': 'uint8_t',
-            'SignedByte': 'int8_t',
-            'Sint8': 'int8_t',
-            'Uint8': 'uint8_t',
-            'Sint16': 'int16_t',
-            'Uint16': 'uint16_t',
-            'Sint32': 'int32_t',
-            'Uint32': 'uint32_t',
-            'ULONGINT': 'uint32_t',
-            'INTEGER': 'int16_t',
-            'LONGINT': 'int32_t',
-        }
+        self.types = {}
         self.body_dedent("""
         #include "py/obj.h"
         #include "py/runtime.h"
+        #include "extmod/moductypes.h"
         #include <Multiverse.h>
 
         // Relies on gcc Variadic Macros and Statement Expressions
@@ -148,17 +311,18 @@ class Processor:
             memcpy((void*)address, bufinfo.buf, objsize);
         }
         """)
+        self.add_local("__name__", f"MP_ROM_QSTR(MP_QSTR_{self.modname})")
 
     def resolve_type(self, typename):
-        is_const = self.is_const(typename)
-        typename = typename.removeprefix("const ")
+        print(f"resolve_type {typename!r}")
+        typename = typename.strip()
+        if typename.startswith("const "):
+            return "const " + self.resolve_type(typename.removeprefix("const "))
+        if typename.endswith("*"):
+            return self.resolve_type(typename.removesuffix("*")) + "*"
 
-        while typename in self.types:
-            typename = self.types[typename]
-
-        if is_const and self.is_ptr(typename):
-            return f"const {typename}"
-
+        if typename in self.types:
+            typename = self.resolve_type(self.types[typename])
         return typename
 
     def is_ptr(self, typename):
@@ -170,37 +334,41 @@ class Processor:
     def body_dedent(self, text):
         self.body.append(textwrap.dedent(text.rstrip()))
 
-    def process(self, defs):
+    def typedefs(self, defs):
         for d in defs:
-            self.only_for = d.pop('only-for', None)
-            self.not_for = d.pop('not-for', None)
-            self.api = d.pop('api', None)
+            if isinstance(d, Typedef):
+                self.types[d.name] = d.type
+            if isinstance(d, Struct) and d.members:
+                self.body_dedent(f"MP_DECLARE_CTYPES_STRUCT({d.name}_type_obj);")
+            if isinstance(d, PyVerbatim) and d.typedef_content:
+                self.body_dedent(d.typedef_content)
 
-            if len(d) != 1:
-                raise ValueError(f"Definition with more than one key: {defs!r}")
-            k, v = d.popitem()
-            meth = getattr(self, 'handle_' + k, lambda v: self.handle_unknown(k, v))
-            meth(v)
+    def emit(self, defs):
+        print(f"emitting {len(defs)} defs")
+        for d in defs:
+            print(d)
+            self.emit_node(d)
 
-    def handle_unknown(self, k, v):
-        if k in self.unknowns:
+    @singledispatchmethod
+    def emit_node(self, node):
+        if type(node) in self.unknowns:
             return
-        self.unknowns.add(k)
-        self.info.append(f"# Unknown {k} {v!r:.55s}...")
+        self.unknowns.add(type(node))
+        self.info.append(f"# Unknown {node!r:.68s}...")
 
-    def handle_enum(self, e):
-        for v in e['values']:
-            if 'value' in v:
-                self.locals.append(
-                    f"{{ MP_ROM_QSTR(MP_QSTR_{v['name']}), MP_ROM_INT({v['value']}) }},"
-                )
+    @emit_node.register
+    def emit_enum(self, e: Enum):
+        for v in e.values:
+            if v.value is not None and v.name is not None:
+                self.locals.append(f"{{ MP_ROM_QSTR(MP_QSTR_{v.name}), MP_ROM_INT({v.value}) }},")
             # else:
             # self.info.append(f"enumerant without value: {v['name']}")
 
-    def handle_lowmem(self, lm):
-        name = lm['name']
-        address = lm['address']
-        typename = lm['type']
+    @emit_node.register
+    def emit_lowmem(self, lm: LowMem):
+        name = lm.name
+        address = lm.address
+        typename = lm.type
         self.body_dedent(f"""
             static mp_obj_t LMGet{name}_fn(size_t n_args, const mp_obj_t *args) {{
                 return LMGet_common({address}, sizeof({typename}), n_args == 0 ? mp_const_none : args[0]);
@@ -213,18 +381,25 @@ class Processor:
             }}
             MP_DEFINE_CONST_FUN_OBJ_1(LMSet{name}_obj, LMSet{name}_fn);
             """)
-        self.locals.append(
-            f"{{ MP_ROM_QSTR(MP_QSTR_LMGet{name}), MP_ROM_PTR(&LMGet{name}_obj) }},"
-        )
-        self.locals.append(
-            f"{{ MP_ROM_QSTR(MP_QSTR_LMSet{name}), MP_ROM_PTR(&LMSet{name}_obj) }},"
-        )
+        self.add_local(f"LMGet{name}")
+        self.add_local(f"LMSet{name}")
 
-    def handle_typedef(self, v):
-        pass  # ignore typedefs for now ??
+    def add_local(self, name, value=...):
+        if value is ...:
+            value = f"MP_ROM_PTR(&{name}_obj)"
+        self.locals.append(f"{{ MP_ROM_QSTR(MP_QSTR_{name}), {value} }},")
 
-    def handle_verbatim(self, v):
+    @emit_node.register
+    def emit_verbatim(self, v: Verbatim):
         pass  # Ignore verbatim blocks
+
+    @emit_node.register
+    def emit_pyverbatim(self, v: PyVerbatim):
+        print(f"{v=!r}")
+        if v.content:
+            self.body.append(v.content)
+        if v.name is not None:
+            self.add_local(v.name)
 
     # {'args': [{'name': 'src_bitmap', 'type': 'BitMap*'},
     #          {'name': 'dst_bitmap', 'type': 'BitMap*'},
@@ -238,13 +413,13 @@ class Processor:
 
     def fun_declare_args_enum(self, args):
         if args:
-            args = ", ".join(f"ARG_{arg['name']}" for arg in args)
+            args = ", ".join(f"ARG_{arg.name}" for arg in args)
             return f"enum {{ {args} }};"
         return ""
 
     @staticmethod
     def fun_declare_allowed_arg(arg):
-        name = arg['name']
+        name = arg.name
         return f"{{ MP_QSTR_{name}, MP_ARG_OBJ | MP_ARG_REQUIRED, {{0}}, }},"
 
     def fun_parse_args(self, args):
@@ -259,65 +434,70 @@ class Processor:
         return "\n".join(f"    {line}" for line in body)
 
     def make_converter(self, typename):
-        if not typename.endswith('*'):
-            typename = self.resolve_type(typename)
+        typename = self.resolve_type(typename)
         return make_converter(typename)
 
     def fun_convert_arg(self, idx, arg):
-        return self.make_converter(arg['type']).emit_to_c(f"args[{idx}].u_obj", arg['name'])
+        return self.make_converter(arg.type).emit_to_c(f"args[{idx}].u_obj", arg.name)
 
     def fun_convert_args(self, args):
         return "".join("    " + self.fun_convert_arg(i, a) for i, a in enumerate(args))
 
     def fun_call_fun(self, fun):
-        return_type = fun.get('return', None)
-        args = fun.get('args', [])
-        fun_args = ", ".join(arg['name'] for arg in args)
-        funcall = f"{fun['name']}({fun_args});"
+        return_type = fun.return_
+        args = fun.args
+        fun_args = ", ".join(arg.name for arg in args)
+        funcall = f"{fun.name}({fun_args});"
         if return_type:
             funcall = f"{return_type} retval = {funcall}"
         return "    " + funcall
 
     def fun_convert_return(self, fun):
-        return_type = fun.get('return', None)
+        return_type = fun.return_
         if return_type:
             converter = self.make_converter(return_type)
             return f"    return {converter.emit_to_py('retval')};// TODO"
         else:
             return "    return mp_const_none;"
 
-    def handle_function(self, fun):
-        name = fun['name']
-        args = fun.get('args', [])
-        if self.api == 'carbon':
+    @emit_node.register
+    def emit_function(self, node: Function):
+        name = node.name
+        args = node.args
+        if node.api == 'carbon':
             return
         self.body_dedent(f"""
         mp_obj_t {name}_fn(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {{
              {self.fun_parse_args(args)}
              {self.fun_convert_args(args)}
-             {self.fun_call_fun(fun)}
-             {self.fun_convert_return(fun)}
+             {self.fun_call_fun(node)}
+             {self.fun_convert_return(node)}
         }}
         MP_DEFINE_CONST_FUN_OBJ_KW({name}_obj, {len(args)}, {name}_fn);
         """)
-        self.locals.append(f"{{ MP_ROM_QSTR(MP_QSTR_{name}), MP_ROM_PTR(&{name}_obj) }},")
+        self.add_local(name)
 
-    def handle_funptr(self, fun):
+    @emit_node.register
+    def emit_funptr(self, node: FunPtr):
         pass  # Ignore function pointers for now
 
-    def emit(self):
+    def make_output(self, target):
+        print("make_output", target)
+
+        def do_print(*args):
+            print(*args, file=target)
+
         for row in self.decls:
-            print(row)
+            do_print(row)
         for row in self.body:
-            print(row)
-            print()
-        print("static const mp_rom_map_elem_t module_globals_table[] = {")
-        print(f"    {{ MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_{self.modname}) }},")
+            do_print(row)
+            do_print()
+        do_print("static const mp_rom_map_elem_t module_globals_table[] = {")
         for row in self.locals:
-            print(f"    {row}")
-        print("};")
-        print("static MP_DEFINE_CONST_DICT(module_globals, module_globals_table);")
-        print(
+            do_print(f"    {row}")
+        do_print("};")
+        do_print("static MP_DEFINE_CONST_DICT(module_globals, module_globals_table);")
+        do_print(
             textwrap.dedent(f"""
             const mp_obj_module_t {self.modname}_module = {{
                 .base = {{ &mp_type_module }},
@@ -331,6 +511,36 @@ class Processor:
             print(row, file=sys.stderr)
 
 
-p = Processor(modname)
-p.process(defs)
-p.emit()
+@click.command
+@click.argument("defs_files", type=click.Path(path_type=pathlib.Path, exists=True), nargs=-1)
+@click.option("-o", "--output", type=click.Path(path_type=pathlib.Path), default=None)
+@click.option(
+    "-t", "--typedefs", multiple=True, type=click.Path(path_type=pathlib.Path, exists=True)
+)
+@click.option("-m", "--modname", type=str)
+def main(defs_files, output, modname, typedefs):
+    print(f"note: {typedefs=!r} {defs_files=!r}")
+    if output is None:
+        output = pathlib.Path(f"mod{modname}.c")
+    # if pyoutput is None:
+    # pyoutput = output.with_suffix(".py")
+    processor = Processor(modname)
+
+    for t in typedefs:
+        defs = load_defs(t)
+        processor.typedefs(defs)
+
+    defs = []
+    for f in defs_files:
+        defs.extend(load_defs(f))
+    print(len(defs))
+    processor.typedefs(defs)
+    processor.emit(defs)
+
+    with open(output, "w") as f:
+        processor.make_output(f)
+    print(f"wrote to {output!r}")
+
+
+if __name__ == '__main__':
+    main()

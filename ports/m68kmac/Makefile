@@ -76,10 +76,14 @@ OBJ += $(addprefix $(BUILD)/, $(SRC_S:.s=.o))
 .PHONY: mkapi
 mkapi: $(BUILD)/modqd.c
 
-$(BUILD)/modqd.c: tools/mkapi.py
+DEFS = lib/multiversal/defs/MacTypes.yaml
+TDEFS = $(patsubst %, -t %, $(DEFS))
+$(BUILD)/modqd.c: tools/mkapi.py lib/multiversal/defs/QuickDraw.yaml etc/QuickDrawExtras.yaml $(DEFS)
 	$(ECHO) "MKAPI $@"
 	$(Q)$(MKDIR) -p $(BUILD)
-	$(Q)$(PYTHON) tools/mkapi.py lib/multiversal/defs/QuickDraw.yaml qd > $@
+	$(Q)$(PYTHON) tools/mkapi.py \
+		-o $@ -m qd -t lib/multiversal/defs/MacTypes.yaml \
+		lib/multiversal/defs/QuickDraw.yaml etc/QuickDrawExtras.yaml
 
 all: $(BUILD)/micropython.bin
 
@@ -104,12 +108,9 @@ docker-build: mkapi
 	docker run --rm --mount type=bind,source=$(abspath $(TOP)),destination=/work ghcr.io/autc04/retro68  make -C /work/ports/m68kmac -j$(shell nproc)
 
 BASE_IMG ?= base.img
-UMAC=$(HOME)/src/umac/main -w -r ~/src/umac/rom.bin
+VMAC=vmac
 .PHONY: run
 run:
-	cp $(BASE_IMG) $(BUILD)/run.dsk
-	hmount $(BUILD)/run.dsk
-	hcopy $(BUILD)/micropython.bin ":Desktop Folder"
-	$(UMAC) -d build/run.dsk
+	$(VMAC) $(BASE_IMG) build/micropython.dsk
 
 include $(TOP)/py/mkrules.mk
