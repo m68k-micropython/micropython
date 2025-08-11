@@ -24,8 +24,8 @@ def pstr(s):
 
 ev = eventmgr.EventRecord()
 
-NIL_WINDOW = uctypes.struct(0, qd.GrafPtr)
-ABOVE_ALL_WINDOWS = uctypes.struct(-1, qd.GrafPtr)
+NIL_WINDOW = uctypes.struct(0, qd.GrafPort)
+ABOVE_ALL_WINDOWS = uctypes.struct(-1, qd.GrafPort)
 
 title = pstr("Region test")
 r = mactypes.Rect()

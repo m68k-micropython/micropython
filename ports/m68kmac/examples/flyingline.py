@@ -64,8 +64,8 @@ def WindowInit():
     newMBarHeight[1] = 0
     menumgr.LMSetMBarHeight(newMBarHeight)
 
-    NIL_WINDOW = uctypes.struct(0, qd.GrafPtr)
-    kMoveToFront = uctypes.struct(-1, qd.GrafPtr)
+    NIL_WINDOW = uctypes.struct(0, qd.GrafPort)
+    kMoveToFront = uctypes.struct(-1, qd.GrafPort)
     kEmptyTitle = pstr("")
     kVisible = True
     kNoGoAway = False
