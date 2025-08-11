@@ -51,7 +51,6 @@ qd.FrameOval(tempRect)
 qd.CloseRgn(barbell)
 
 r[:] = barbell[0].rgnBBox
-print(f"region size {barbell[0].rgnSize} bbox {r.top},{r.left}..{r.right},{r.bottom}")
 qd.FillRgn(barbell, g.black)
 
 qd.DisposeRgn(barbell)
