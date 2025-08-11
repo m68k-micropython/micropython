@@ -1,8 +1,8 @@
-MicroPython Documentation
-=========================
+M68k MicroPython Documentation
+==============================
 
-The MicroPython documentation can be found at:
-http://docs.micropython.org/en/latest/
+The M68k MicroPython documentation can be found at:
+https://m68k-micropython.readthedocs.io/en/latest/
 
 The documentation you see there is generated from the files in the docs tree:
 https://github.com/micropython/micropython/tree/master/docs
@@ -13,11 +13,9 @@ Building the documentation locally
 If you're making changes to the documentation, you may want to build the
 documentation locally so that you can preview your changes.
 
-Install Sphinx, and optionally (for the RTD-styling), sphinx_rtd_theme,
-preferably in a virtualenv:
+Install the requirements, preferably in a virtualenv:
 
-     pip install sphinx
-     pip install sphinx_rtd_theme
+     pip install -r requirements.txt
 
 In `micropython/docs`, build the docs:
 

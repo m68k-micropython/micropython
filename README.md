@@ -17,9 +17,9 @@ datatypes are provided: `str`(including basic Unicode support), `bytes`,
 `collections.namedtuple`, classes and instances. Builtin modules include
 `os`, `sys`, `time`, `re`, and `struct`, etc.
 
-Mac specific functionality is limited:
+Mac specific functionality includes:
  * `os.VfsMac` for interacting with filesystems
- * `qd`, a dirty wrapper around QuickDraw
+ * The modules documented under "[Macintosh Specific libraries](https://m68k-micropython.readthedocs.io/en/latest/library/index.html#macintosh-specific-libraries)", including `qd`, wrapper around QuickDraw.
 
 MicroPython can execute scripts in textual source form (.py files) or from
 precompiled bytecode (.mpy files), in both cases either from an on-device
@@ -31,9 +31,9 @@ Getting started
 Grab a release image and use it with your favorite mac emulator, including the
 website [Infinite Mac](https://infinitemac.org/).
 
-See micropython's [online documentation](https://docs.micropython.org/) for the API
-reference and information about using MicroPython and information about how
-it is implemented. TODO: Document modules specific to m68k-micropython.
+See the project's [online documentation](https://m68k-micropython.readthedocs.io/en/latest/) for the API
+reference and information about using M68k-MicroPython and information about how
+it is implemented.
 
 We use [GitHub Discussions](https://github.com/orgs/m68k-micropython/discussions)
 as our forum, and Mastodon (#m68kMicroPython) for chat. These

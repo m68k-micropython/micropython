@@ -71,7 +71,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "MicroPython"
+project = "M68k-MicroPython"
 copyright = "- The MicroPython Documentation is Copyright © 2014-2025, " + micropy_authors
 
 # The version info for the project you're documenting, acts as replacement for
@@ -168,7 +168,7 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path(), "."]
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-html_favicon = "static/favicon.ico"
+# html_favicon = "static/favicon.ico"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -226,7 +226,7 @@ html_additional_pages = {"index": "topindex.html"}
 # html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "MicroPythondoc"
+htmlhelp_basename = "M68kMicroPythondoc"
 
 
 # -- Options for LaTeX output ---------------------------------------------
