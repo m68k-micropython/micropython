@@ -1,14 +1,18 @@
 # m68k-micropython window creation demo
 
+import deskmgr
 import eventmgr
 import mactypes
 import qd
+import toolboxevent
 import uctypes
 import windowmgr
 import random
+import machine
 
 scrn = qd.qdGlobals().screenBits
 
+machine.HideConsole()
 
 def pstr(s):
     b = mactypes.Str255()
@@ -23,7 +27,7 @@ ev = eventmgr.EventRecord()
 NIL_WINDOW = uctypes.struct(0, qd.GrafPtr)
 ABOVE_ALL_WINDOWS = uctypes.struct(-1, qd.GrafPtr)
 
-title = pstr("Hello World 11")
+title = pstr("Region test")
 r = mactypes.Rect()
 r[:] = scrn.bounds
 r.top += 80
@@ -52,4 +56,9 @@ qd.FillRgn(barbell, g.black)
 
 qd.DisposeRgn(barbell)
 
-input("hit enter to exit")
+qd.MoveTo(24, 65)
+qd.DrawString(pstr("Click Mouse to Exit"))
+
+
+while not toolboxevent.Button():
+    deskmgr.SystemTask()  # scott added - slows it down on fast machines

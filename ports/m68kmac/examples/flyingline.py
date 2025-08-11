@@ -20,7 +20,7 @@ import time
 import toolboxevent
 import uctypes
 import windowmgr
-
+import machine
 
 # Globals
 kNumLines = 50          # Try 100 or 150!
@@ -58,6 +58,7 @@ def WindowInit():
     """
     global gOldMBarHeight
 
+    machine.HideConsole()
     gOldMBarHeight = menumgr.LMGetMBarHeight()
     newMBarHeight = menumgr.LMGetMBarHeight()
     newMBarHeight[1] = 0
