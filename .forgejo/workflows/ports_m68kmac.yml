@@ -1,0 +1,64 @@
+name: m68k macintosh port
+
+on:
+  push:
+  pull_request:
+  release:
+    types:
+      - created  # forgejo does not document the value "created"
+      - published
+
+# (may not be used by forgejo, but is ignored for now)
+concurrency:
+  group: ${{ forge.workflow }}-${{ forge.ref_name }}-${{ forge.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    permissions: write-all
+    runs-on: codeberg-tiny
+    container:
+      image: ghcr.io/m68k-micropython/retro68@sha256:fb78281a61f1324a3d552f1a8bbf8b35690926f0b11da2dacddd985f4ff4acac
+    steps:
+    - name: Set up tea
+      run: |
+        set -x
+        ARCH=$(dpkg --print-architecture)
+        curl -sL https://dl.gitea.io/tea/"$TEA_VERSION"/tea-"$TEA_VERSION"-linux-"$ARCH" > /usr/local/bin/tea
+        chmod +x /usr/local/bin/tea
+        tea --version
+      env:
+        TEA_VERSION: "0.10.1"
+
+    - uses: actions/checkout@v4
+    - name: Build
+      run: |
+        git config --global --add safe.directory $(pwd)
+        make -C mpy-cross -j$(nproc)
+        make -C ports/m68kmac submodules
+        make -C ports/m68kmac -j$(nproc) MICROPY_USE_COMPILER_PLUGIN=gcc
+
+    - name: Prepare release distribution
+      run: |
+        mkdir dist/
+        cp ports/m68kmac/build/micropython.{bin,dsk} dist/
+
+    - run: |
+        du -hx
+
+    - name: Attach files to actions run
+      if: ${{ forge.event_name != 'release' }}
+      uses: actions/upload-artifact@v3
+      with:
+        path: dist/*
+
+    - name: Attach files to release
+      if: ${{ forge.event_name == 'release' }}
+      run: |
+        tools/add_release_assets.sh
+      env:
+        TEA_VERSION: "0.10.1"
+        EVENT_DATA: ${{ forge.event_path }}
+        GITEA_SERVER_TOKEN: ${{ forge.token }}
+        FORGE_SERVER_URL: ${{ forge.server_url }}
+        TAG: ${{ forge.event.release.name }}
