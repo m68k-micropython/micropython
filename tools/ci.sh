@@ -641,7 +641,7 @@ function ci_unix_coverage_build {
 }
 
 function ci_unix_coverage_run_tests {
-    MICROPY_TEST_TIMEOUT=60 ci_unix_run_tests_full_helper coverage
+    MICROPY_TEST_TIMEOUT=60 ci_unix_run_tests_helper VARIANT=coverage
 }
 
 function ci_unix_coverage_run_mpy_merge_tests {
