@@ -31,7 +31,8 @@ jobs:
         TEA_VERSION: "0.10.1"
 
     - uses: actions/checkout@v4
-    - name: Build
+
+    - name: Build m68k port
       run: |
         git config --global --add safe.directory $(pwd)
         make -C mpy-cross -j$(nproc)
@@ -43,14 +44,42 @@ jobs:
         mkdir dist/
         cp ports/m68kmac/build/micropython.{bin,dsk} dist/
 
-    - run: |
-        du -hx
-
     - name: Attach files to actions run
       if: ${{ forge.event_name != 'release' }}
       uses: actions/upload-artifact@v3
       with:
         path: dist/*
+
+    - name: Run tests via "unix" port
+      run: |
+        make -C ports/unix submodules
+        make -C ports/unix -j$(nproc)
+        ulimit -n 1024; \
+        if ! make -C ports/unix test ; then
+          ./tests/run-tests.sh --print-failures; \
+          exit 1;\
+        fi
+
+    - name: Install packages for C code formatting
+      run: source tools/ci.sh && ci_c_code_formatting_setup
+    - name: Run C code formatting
+      run: source tools/ci.sh && ci_c_code_formatting_run
+    - name: Check code formatting
+      run: git diff --exit-code
+
+    - name: Check spelling
+      run: |
+        pip install --user codespell==2.4.1 tomli
+        codespell
+
+    - name: Run ruff
+      run: |
+        pip install ruff==0.11.6
+        ruff check --output-format=github .
+        ruff format --diff .
+
+    - name: Check build directory size
+      run: du -shx
 
     - name: Attach files to release
       if: ${{ forge.event_name == 'release' }}
