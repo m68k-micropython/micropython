@@ -4,27 +4,28 @@ originally written for MacPython IDE by Just van Rossum
 Ported to Micropython m68k by Scott Small
 
 INSTRUCTIONS FOR USE:
-1. Decompress the "splashscreen_imphook.rsrc.hqx" file with Stuffit Expander.
-2. This will create a "splashscreen_imphook.rsrc" file. Open it with ResEdit.
-3. Copy the PICT resource with ID 499 into the micropython application and save changes.
-4. Increase the memory allocation of the micropython application to 4096kb.
-5. Double click on "splashscreen_imphook.py" to run the demo. Click to exit when the
+1. Decompress the "splashscreen_imphook.rsrc.hqx" file with Stuffit Expander,
+   into the same folder as "splashscreen_imphook.py". This will create a
+   "splashscreen_imphook.rsrc" file.
+2. Increase the memory allocation of the micropython application to 4096kb.
+3. Double click on "splashscreen_imphook.py" to run the demo. Click to exit when the
    loading bar has reached the end.
 """
 
 # Imports
 # These are needed to display the splash screen
 # so they have to load before our import hook
+import dialogmgr
 import fontmgr
 import machine
 import mactypes
 import qd
+import resourcemgr
 import sys
 import textedit
 import time
 import toolboxutil
 import uctypes
-import windowmgr
 
 
 # Globals
@@ -63,16 +64,13 @@ def importing(module):
     right now, if you want more/less you will need to do math and update
     the rect sizes manually
     """
-    global _progress
-    
-    splash = windowmgr.FrontWindow()
+    global _progress, splash
     
     qd.SetPort(splash)
     qd.TextFont(fontmgr.kFontIDGeneva)
     qd.TextSize(9)
     rect = mactypes.Rect(270, 85, 286, 413)
     qd.ForeColor(qd.whiteColor)
-    qd.BackColor(qd.blackColor)
     if module:
         text = bytearray(b"Importing: " + module)
         textedit.TETextBox(text, len(text), rect, 0)
@@ -81,7 +79,6 @@ def importing(module):
         _progress = _progress + 59
         qd.PaintRect(mactypes.Rect(287, 86, 293, _progress))
     qd.ForeColor(qd.blackColor)
-    qd.BackColor(qd.whiteColor)
     time.sleep(1)  # only for the demo, so you can see progress advancing
 
 
@@ -131,59 +128,40 @@ def getText():
     return bytearray(text)
 
 
-def drawSplash(window):
+def drawSplashText(dialog):
     """
-    Draws the contents of the splash screen into the window
+    Draws the text of the splash screen into the dialog
     """
-    qd.SetPort(window)
-
-    # set background of window to black
-    qd.ForeColor(qd.blackColor)
-    qd.PaintRect(window.portRect)
-
-    # draw logo
-    # TODO: load the PICT from a pict or resource file
-    #  currently this demo requires a modified version of the micropython
-    #  executable with a PICT resource at id 499 in order to work correctly
-    #  Also you may need to increase the memory allocation to the micropython
-    #  application depending on the size of the PICT that is used here
-    logo = toolboxutil.GetPicture(499)
-    qd.DrawPicture(logo, mactypes.Rect(-20, -10, 180, 504))
-
-    # draw text
+    qd.SetPort(dialog)
     qd.TextSize(9)
     qd.TextFont(fontmgr.kFontIDGeneva)
-    qd.BackColor(qd.blackColor)
     qd.ForeColor(qd.whiteColor)
     textRect = mactypes.Rect(195, 10, 270, 487)
     text = getText()
     textedit.TETextBox(text, len(text), textRect, textedit.teJustCenter)
     qd.ForeColor(qd.blackColor)
-    qd.BackColor(qd.whiteColor)
-
-    windowmgr.ValidRect(window.portRect)
 
 
 # Hide the Micropython console window
 machine.HideConsole()
 
-# install the import hook
+# Install the import hook
 install_importhook()
 
-# create and draw the splash screen
-splash = windowmgr.NewWindow(
-    uctypes.struct(0, qd.GrafPort),
-    mactypes.Rect(87, 118, 394, 614),
-    pstr(""),
-    False,
-    windowmgr.plainDBox,
-    uctypes.struct(-1, qd.GrafPort),
-    False,
-    0
-)
-windowmgr.ShowWindow(splash)
-drawSplash(splash)
+# Open resource file and tell the resource manager to use it
+rf = resourcemgr.OpenResFile(pstr("splashscreen_imphook.rsrc"))
+resourcemgr.UseResFile(rf)
 
+# Load the splash screen dialog from the resource file
+splash = dialogmgr.GetNewDialog(
+    468,
+    uctypes.struct(0, qd.GrafPort),
+    uctypes.struct(-1, qd.GrafPort)
+)
+
+# Draw the splash screen dialog, and render the text into it
+dialogmgr.DrawDialog(splash)
+drawSplashText(splash)
 
 # Here's some imports that we're not actually using
 # (well, except for deskmgr & toolboxevent) that will
@@ -191,12 +169,15 @@ drawSplash(splash)
 # progress bar in the splash screen
 import array
 import deskmgr
-import dialogmgr
 import eventmgr
 import io
 import menumgr
 import toolboxevent
+import windowmgr
 
-# click to exit (after all imports are done)
+# Click to exit (after all imports are done)
 while not toolboxevent.Button():
     deskmgr.SystemTask()
+
+# Close resource file
+resourcemgr.CloseResFile(rf)
