@@ -108,10 +108,10 @@ REZ=Rez
 RINCLUDES=/Retro68-build/toolchain/RIncludes
 REZFLAGS=-I$(RINCLUDES)
 
-$(BUILD)/micropython.bin $(BUILD)/micropython.APPL $(BUILD)/micropython.dsk: $(BUILD)/micropython.code.bin
+$(BUILD)/micropython.bin $(BUILD)/micropython.APPL $(BUILD)/micropython.dsk: $(BUILD)/micropython.code.bin etc/micropython.APPL.r
 	$(REZ) $(REZFLAGS) \
-		--copy "$(BUILD)/micropython.code.bin" \
-		"$(RINCLUDES)/Retro68APPL.r" \
+		--copy $< \
+		etc/micropython.APPL.r \
 		-t "APPL" -c "mupy" \
 		-o $(BUILD)/micropython.bin --cc $(BUILD)/micropython.APPL --cc $(BUILD)/micropython.dsk
 	hmount $(BUILD)/micropython.dsk
