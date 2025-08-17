@@ -125,17 +125,12 @@ mp_obj_t uctypes_struct_type_make_new(const mp_obj_type_t *type_in, size_t n_arg
 
     mp_buffer_info_t bufinfo;
     if (is_ptr(desc)) {
-        bufinfo.len = size;
-        if (n_args != 1) {
+        bufinfo.buf = 0;
+        if (n_args > 1) {
             mp_raise_TypeError(NULL);
         }
-        if (mp_obj_is_int(args[0])) {
-            void *ptr = (void *)(uintptr_t)mp_obj_get_int_truncated(args[0]);
-            *(void **)bufinfo.buf = ptr;
-        } else {
-            mp_buffer_info_t pointee;
-            mp_get_buffer_raise(args[0], &pointee, MP_BUFFER_WRITE);
-            *(void **)bufinfo.buf = pointee.buf;
+        if (n_args) {
+            bufinfo.buf = (void *)mp_obj_get_int_truncated(args[0]);
         }
     } else {
         mp_obj_t bytearray = mp_obj_new_bytearray(size, NULL);
