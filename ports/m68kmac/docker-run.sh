@@ -7,5 +7,5 @@ if [ $# -eq 0 ]; then it=-it; else it=; fi
 docker run \
     -w /work/ports/m68kmac --rm \
     -v "${TOP}":/work \
-    ${it} ghcr.io/m68k-micropython/builder:latest "$@"
+    ${it} ghcr.io/m68k-micropython/retro68:latest "$@"
 
