@@ -18,7 +18,6 @@ MKAPIFORMAT = --format
 endif
 include $(TOP)/extmod/multiversal.mk
 $(eval $(call multiversal_module,mkapitest,variants/coverage/mkapi_test.yaml))
-$(info $(call multiversal_module,mkapitest,variants/coverage/mkapi_test.yaml))
 
 SRC_C += coverage.c
 SRC_CXX += coveragecpp.cpp
