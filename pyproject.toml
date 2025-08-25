@@ -18,6 +18,7 @@ skip = """
 ./ports/stm32/usbhost,\
 ./tests,\
 ACKNOWLEDGEMENTS,\
+*/*.hqx,
 """
 
 [tool.ruff]
